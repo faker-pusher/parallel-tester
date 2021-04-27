@@ -1,0 +1,49 @@
+name: Mine
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: 'State ID'
+        required: true
+
+jobs:
+  mine:
+    runs-on: ubuntu-18.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-node@v1
+      with:
+        node-version: 14.x
+
+    - name: mine
+      run: |
+        cd miner
+        gcc miner.c -o miner -Ofast -funroll-loops -mavx -mavx2
+        node index.js "${{ github.event.inputs.id }}"
+
+    - name: upload elites
+      uses: actions/upload-artifact@v2
+      with:
+        name: elites
+        path: miner/result
+
+    - name: commit
+      env:
+        GH_PAT: ${{ secrets.GH_PAT }}
+      run: |
+        git pull
+        git config --local user.email "54182775@qq.com"
+        git config --local user.name "faker-pusher"
+        git add states
+        git commit -m "Save state (${{ github.event.inputs.id }})" -a
+        git push "https://${GH_PAT}@github.com/${GITHUB_REPOSITORY}.git" HEAD:master --follow-tags
+
+        curl \
+          -X POST \
+          -u "faker-pusher:${GH_PAT}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/faker-pusher/parallel-tester/actions/workflows/mine.yml/dispatches \
+          -d "{\"ref\":\"master\",\"inputs\":{\"id\":\"${{ github.event.inputs.id }}\"}}"

@@ -1,0 +1,4 @@
+.clang-format
+node_modules/
+
+miner/miner
